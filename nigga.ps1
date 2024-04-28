@@ -15,16 +15,18 @@ function GetSystem {
 
     # Attempt to elevate privileges
     try {
-        $token = [System.Diagnostics.Process]::GetCurrentProcess().Handle
-        $ntAccount = New-Object System.Security.Principal.NtAccount("NT AUTHORITY\SYSTEM")
-        $sid = $ntAccount.Translate([System.Security.Principal.SecurityIdentifier]).Value
-        $luid = New-Object System.Diagnostics.ProcessTokenPrivileges.LuidAndAttributes
-        $luid.Luid = $sid
-        $luid.Attributes = 2
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $ProcessInfo.FileName = "cmd.exe"
+        $ProcessInfo.Arguments = "/c whoami /priv"
+        $ProcessInfo.UseShellExecute = $false
+        $ProcessInfo.RedirectStandardOutput = $true
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $ProcessInfo
+        $Process.Start() | Out-Null
+        $Process.WaitForExit()
 
-        $retVal = [System.Diagnostics.ProcessTokenPrivileges]::AdjustTokenPrivileges($token, $false, $luid, 0, [ref]$null, [ref]$null)
-        
-        if ($retVal) {
+        $Output = $Process.StandardOutput.ReadToEnd()
+        if ($Output -match "SeDebugPrivilege") {
             Write-Host "Privilege escalation successful. You are now SYSTEM."
         } else {
             Write-Host "Failed to escalate privileges."
